@@ -1,7 +1,6 @@
 """
 tools: 压缩图片，前端一张头像图片有近5M，请求比较慢，压缩之后50K
 """
-# Author     : dWX568469
 # FileName   : tools.py
 # CreateDate : 2019-09-17 16:16
 # 一：导入包

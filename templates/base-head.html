@@ -16,6 +16,16 @@
         #logout:hover {
             color: red
         }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+        }
+
+        body {
+            background-color: #FC0;
+            background-image: linear-gradient(to bottom, rgba(28, 153, 0, 0.35), #ffcc00, rgba(0, 153, 8, 0.36));
+        }
     </style>
 </head>
 <body>
@@ -26,7 +36,7 @@
         <h2 id="mnavh"><span class="navicon"></span></h2>
         <ul id="starlist">
             <li><a href="{% url 'home' %}">首页</a></li>
-            <li><a href="{% url 'share' %}">分享</a></li>
+            {#            <li><a href="{% url 'share' %}">分享</a></li>#}
             {#<li><a href="list.html">日记</a></li>#}
             <li class="menu"><a href="{% url 'learning' %}">学无止境</a>
                 <ul class="sub">
@@ -72,5 +82,19 @@
             href="https://cn.aliyun.com" class="links">友情链接</a></p>
 </footer>
 <a href="#" class="cd-top">Top</a>
+<script type="text/javascript" charset="utf-8"
+        src="https://eqcn.ajz.miesnfu.com/wp-content/plugins/wp-3d-pony/live2dw/lib/L2Dwidget.min.js"></script>
+<script>
+    L2Dwidget.init({
+        "display": {
+            "superSample": 2,
+            "width": 200,
+            "height": 400,
+            "position": "right",
+            "hOffset": 0,
+            "vOffset": 0
+        }
+    });
+</script>
 </body>
 </html>

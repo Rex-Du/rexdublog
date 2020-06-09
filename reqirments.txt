@@ -10,3 +10,5 @@ django-pure-pagination
 pymysql
 social-auth-app-django
 sentry-sdk==0.10.2
+mysqlclient
+django-redis
