@@ -1,0 +1,56 @@
+{% extends 'learning.html' %}
+{% load staticfiles %}
+{% block css-js %}
+    <link href="{% static 'css/base.css' %}" rel="stylesheet">
+    <link href="{% static 'css/index.css' %}" rel="stylesheet">
+    <link href="{% static 'css/m.css' %}" rel="stylesheet">
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'js/jquery.easyfader.min.js' %}"></script>
+    <script src="{% static 'js/hc-sticky.js' %}"></script>
+    <script src="{% static 'js/comm.js' %}"></script>
+    <script src="{% static 'js/scrollReveal.js' %}"></script>
+{% endblock %}
+{% block blogs %}
+    <div class="place" id="pageContents"><a href="#" id="pagecurrent">Python</a><a
+            href="{% url 'linux' %}">Linux</a></div>
+    {% for article in curr_page.object_list %}
+        <div class="blogs" data-scroll-reveal="enter bottom over 1s">
+            <h3 class="blogtitle"><a href="{% url 'detail' article.id %}"
+                                     target="_blank">{{ article.title }}</a></h3>
+	    <span class="blogpic"><a href="/" title=""><img src="{{ MEDIA_URL }}{{ article.image }}"
+                                                            alt=""></a></span>
+            <p class="blogtext">{{ article.desc|safe }}</p>
+            <div class="bloginfo">
+                <ul>
+                    <li class="author">{{ article.user }}</li>
+                    <li class="lmname"><a href="/">学无止境</a></li>
+                    <li class="timer">{{ article.add_time }}</li>
+                    <li class="view"><span>{{ article.click_nums }}</span>已阅读</li>
+                    {#                <li class="like">9999</li>#}
+                </ul>
+            </div>
+        </div>
+    {% endfor %}
+
+    <div class="pagelist">
+        <a title="Total record">&nbsp;<b>共 {{ curr_page.paginator.num_pages }} 页</b></a>
+        {% if curr_page.has_previous %}
+            <a href="?{{ curr_page.previous_page_number.querystring }}">上一页</a>
+        {% endif %}
+        {% for page in curr_page.pages %}
+            {% if page %}
+                {% ifequal page curr_page.number %}
+                    <b>{{ page }}</b>
+                {% else %}
+                    <a href="?{{ page.querystring }}" class="page">{{ page }}</a>
+                {% endifequal %}
+            {% else %}
+                ...
+            {% endif %}
+        {% endfor %}
+        {% if curr_page.has_next %}
+            <a href="?{{ curr_page.next_page_number.querystring }}">下一页</a>
+        {% endif %}
+
+    </div>
+{% endblock %}

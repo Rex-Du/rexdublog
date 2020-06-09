@@ -1,0 +1,24 @@
+[[source]]
+name = "pypi"
+url = "http://mirrors.tencentyun.com/pypi/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+django = "==2.2.4"
+djangorestframework = "==3.10.2"
+pytz = "==2019.2"
+sqlparse = "==0.3.0"
+django-ckeditor = "*"
+pillow = "*"
+django-pure-pagination = "*"
+social-auth-app-django = "*"
+sentry-sdk = "==0.10.2"
+PyMySQL = "*"
+mysqlclient = "*"
+django-redis = "*"
+uwsgi = "*"
+
+[requires]
+python_version = "3.6"

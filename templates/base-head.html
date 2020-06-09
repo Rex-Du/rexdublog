@@ -1,0 +1,76 @@
+{% load staticfiles %}
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>RexDu_首页 - 人无恒心，一事无成！！！</title>
+    <meta name="keywords" content="RexDu个人博客,个人博客,个人博客模板,RexDu"/>
+    <meta name="baidu_union_verify" content="7eb6ae6ab01b4a2034656a210232e6c8">
+    <meta name="description" content="RexDu个人博客，是一个分享python内容的程序员个人网站。"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% block css-js %} {% endblock %}
+    <!--[if lt IE 9]>
+<script src="{% static 'js/modernizr.js' %}"></script>
+<![endif]-->
+    <style>
+        #logout:hover {
+            color: red
+        }
+    </style>
+</head>
+<body>
+
+<header class="header-navigation" id="header">
+    <nav>
+        <div class="logo"><a href="#">RexDu个人博客</a></div>
+        <h2 id="mnavh"><span class="navicon"></span></h2>
+        <ul id="starlist">
+            <li><a href="{% url 'home' %}">首页</a></li>
+            <li><a href="{% url 'share' %}">分享</a></li>
+            {#<li><a href="list.html">日记</a></li>#}
+            <li class="menu"><a href="{% url 'learning' %}">学无止境</a>
+                <ul class="sub">
+                    {% for cate in CATEGORIES %}
+                        <li><a href="{% url 'category' cate %}">{{ cate|title }}</a></li>
+                    {% endfor %}
+
+                </ul>
+            </li>
+            <li><a href="{% url 'timeline' %}">时间轴</a></li>
+            <li><a href="{% url 'about-me' %}">关于我</a></li>
+            {% if request.user.is_authenticated %}
+                {{ user.first_name }} <a href="{% url 'logout' %}" id="logout">[退出]</a>
+            {% else %}
+                {#                <li><a href="{% url 'social:begin' 'github' %}">登陆</a></li>#}
+                <li><a href="{% url 'login' %}"><p style="color: red">登录</p></a></li>
+            {% endif %}
+
+
+        </ul>
+        <div class="searchbox">
+            <div id="search_bar" class="search_bar">
+                <form id="searchform" action="[!--news.url--]e/search/index.php" method="post"
+                      name="searchform">
+                    <input class="input" placeholder="想搜点什么呢.." type="text" name="keyboard"
+                           id="keyboard">
+                    <input type="hidden" name="show" value="title"/>
+                    <input type="hidden" name="tempid" value="1"/>
+                    <input type="hidden" name="tbname" value="news">
+                    <input type="hidden" name="Submit" value="搜索"/>
+                    <p class="search_ico"><span></span></p>
+                </form>
+            </div>
+        </div>
+    </nav>
+</header>
+<article>
+    {% block content %}{% endblock %}
+</article>
+<footer>
+    <p>Design by <a href="{% url 'about-me' %}" target="_blank">RexDu个人博客</a> <a
+            href="http://www.beian.miit.gov.cn">鄂ICP备19022244号</a><a
+            href="https://cn.aliyun.com" class="links">友情链接</a></p>
+</footer>
+<a href="#" class="cd-top">Top</a>
+</body>
+</html>

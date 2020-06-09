@@ -1,0 +1,79 @@
+{% extends 'base-head.html' %}
+{% load staticfiles %}
+
+{% block content %}
+    {% block banner %}{% endblock %}
+    <div class="toppic">
+        {% for article in topic_banners %}
+            <li>
+                {% if article.image %}
+                    <a href="{% url 'detail' article.id %}" target="_blank"><i><img src="{{ MEDIA_URL }}{{ article.image }}"></i>
+                {% else %}
+                    <a href="{% url 'detail' article.id %}" target="_blank"><i><img src="{{ article.image_url }}"></i>
+                {% endif %}
+                <h2>{{ article.title }}</h2><span>{{ article.category.name|title }}</span>
+{#                <h2>{{ article.title }}</h2><span>{{ article|title }}</span>#}
+                </a>
+            </li>
+        {% endfor %}
+
+    </div>
+    {% block main %}{% endblock %}
+    <aside class="r_box">
+        <div class="about_me">
+            <h2>博主简介</h2>
+            <ul>
+                <i><img src="{% static 'images/IMG_1306-compress.JPG' %}"></i>
+                <p><b>RexDu</b>，男，一名Pythonista，做个有追求的程序员
+                </p>
+            </ul>
+        </div>
+        <div class="wdxc">
+            <h2>图片精选</h2>
+            <ul>
+                <li><a href="/"><img src="{% static 'images/7.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/8.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/9.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/10.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/11.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/12.jpg' %}"></a></li>
+            </ul>
+        </div>
+        <div class="fenlei">
+            <h2>文章分类</h2>
+            <ul>
+                {% for articles in category_articles %}
+                    <li>
+                        <a href="{% url 'category' articles.category__name %}">{{ articles.category__name|title }}（{{ articles.count }}）</a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="tuijian">
+            <h2 id="tab">
+                <a href="#" class="current">点击排行</a>
+                <a href="#">站长推荐</a>
+            </h2>
+
+            <div id="content">
+                <ul style="display:block;">
+                    {% for article in max_clicked %}
+                        <li><a href="{% url 'detail' article.id %}">{{ article.title }}</a></li>
+                    {% endfor %}
+                </ul>
+                <ul>
+                    {% for article in max_praise %}
+                        <li><a href="{% url 'detail' article.id %}">{{ article.title }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="guanzhu">
+            <h2>联系我 么么哒</h2>
+            <ul>
+                <img src="{% static 'downloads/weixin.png' %}">
+            </ul>
+        </div>
+
+    </aside>
+{% endblock %}

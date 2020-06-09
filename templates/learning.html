@@ -1,0 +1,113 @@
+{% extends 'base-head.html' %}
+{% load staticfiles %}
+{% block css-js %}
+    <link href="{% static 'css/base.css' %}" rel="stylesheet">
+    <link href="{% static 'css/index.css' %}" rel="stylesheet">
+    <link href="{% static 'css/m.css' %}" rel="stylesheet">
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'js/jquery.easyfader.min.js' %}"></script>
+    <script src="{% static 'js/hc-sticky.js' %}"></script>
+    <script src="{% static 'js/comm.js' %}"></script>
+    <script src="{% static 'js/scrollReveal.js' %}"></script>
+{% endblock %}
+{% block content %}
+    <main>
+        <div class="place" id="pageContents">
+            {% for cate in CATEGORIES %}
+                {% ifequal cate category %}
+                    <a href="#" id="pagecurrent">{{ cate|title }}</a>
+                {% else %}
+                    <a href="{% url 'category' cate %}">{{ cate|title }}</a>
+                {% endifequal %}
+            {% endfor %}
+        </div>
+        {% for article in curr_page.object_list %}
+            <div class="blogs" data-scroll-reveal="enter bottom over 1s">
+                <h3 class="blogtitle"><a href="{% url 'detail' article.id %}" target="_blank">{{ article.title }}</a>
+                </h3>
+                {% if article.image %}
+                <span class="blogpic"><a href="{% url 'detail' article.id %}" title=""><img src="{{ MEDIA_URL }}{{ article.image }}" alt=""></a></span>
+		{% elif article.image_url %}
+                    <span class="blogpic"><a href="{% url 'detail' article.id %}" title=""><img src="{{ article.image_url }}" alt=""></a></span>
+                {% endif %}
+                <p class="blogtext">{{ article.desc|safe }}</p>
+                <div class="bloginfo">
+                    <ul>
+                        <li class="author">{{ article.user }}</li>
+                        <li class="lmname"><a href="{% url 'category' category %}">{{ article.category.name|title }}</a></li>
+                        <li class="timer">{{ article.add_time }}</li>
+                        <li class="view"><span>{{ article.click_nums }}</span>已阅读</li>
+                        {#                <li class="like">9999</li>#}
+                    </ul>
+                </div>
+            </div>
+        {% endfor %}
+
+        <div class="pagelist">
+            <a title="Total record">&nbsp;<b>共 {{ curr_page.paginator.num_pages }} 页</b></a>
+            {% if curr_page.has_previous %}
+                <a href="?{{ curr_page.previous_page_number.querystring }}">上一页</a>
+            {% endif %}
+            {% for page in curr_page.pages %}
+                {% if page %}
+                    {% ifequal page curr_page.number %}
+                        <b>{{ page }}</b>
+                    {% else %}
+                        <a href="?{{ page.querystring }}" class="page">{{ page }}</a>
+                    {% endifequal %}
+                {% else %}
+                    ...
+                {% endif %}
+            {% endfor %}
+            {% if curr_page.has_next %}
+                <a href="?{{ curr_page.next_page_number.querystring }}">下一页</a>
+            {% endif %}
+
+        </div>
+
+    </main>
+    <aside class="r_box">
+        <div class="wdxc">
+            <h2>图文精选</h2>
+            <ul>
+                <li><a href="/"><img src="{% static 'images/7.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/8.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/9.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/10.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/11.jpg' %}"></a></li>
+                <li><a href="/"><img src="{% static 'images/12.jpg' %}"></a></li>
+            </ul>
+        </div>
+        <div class="cloud">
+            <h2>标签云</h2>
+            <ul>
+                <a href="/">陌上花开</a> <a href="/">校园生活</a> <a href="/">html5</a> <a
+                    href="/">SumSung</a> <a href="/">青春</a> <a href="/">温暖</a> <a href="/">阳光</a> <a
+                    href="/">三星</a><a href="/">索尼</a> <a href="/">华维荣耀</a> <a href="/">三星</a> <a
+                    href="/">索尼</a>
+            </ul>
+        </div>
+        <div class="tuijian">
+            <h2 id="tab"><a href="#" class="current">点击排行</a><a href="#">站长推荐</a></h2>
+            <div id="content">
+                <ul style="display:block;">
+                    {% for article in max_clicked %}
+                        <li><a href="{% url 'detail' article.id %}">{{ article.title }}</a></li>
+                    {% endfor %}
+                </ul>
+                <ul>
+                    {% for article in max_praise %}
+                        <li><a href="{% url 'detail' article.id %}">{{ article.title }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        <div class="guanzhu">
+            <h2>联系我 么么哒</h2>
+            <ul>
+                <img src="{% static 'downloads/weixin.png' %}">
+            </ul>
+        </div>
+
+    </aside>
+{% endblock %}

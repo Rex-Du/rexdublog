@@ -1,0 +1,4 @@
+Tag doesn't declare an explicit app_label and isn't in an application in INSTALLED_APPS
+
+这个报错是由于导入自已的models类的路径不对导致的
+如在util中 这样导入 from home.models import Category就没错，但是from apps.home.models import Category就报错

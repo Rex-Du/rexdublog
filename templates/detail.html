@@ -1,0 +1,143 @@
+{% extends 'base-head.html' %}
+{% load staticfiles %}
+{% block css-js %}
+    <link href="{% static 'css/base.css' %}" rel="stylesheet">
+    <link href="{% static 'css/index.css' %}" rel="stylesheet">
+    <link href="{% static 'css/info.css' %}" rel="stylesheet">
+    <link href="{% static 'css/m.css' %}" rel="stylesheet">
+    <link href="{% static 'css/detail.css' %}" rel="stylesheet">
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'js/jquery.easyfader.min.js' %}"></script>
+    <script src="{% static 'js/hc-sticky.js' %}"></script>
+    <script src="{% static 'js/comm.js' %}"></script>
+    <script src="{% static 'js/scrollReveal.js' %}"></script>
+    <script src="{% static 'ckeditor/ckeditor/ckeditor.js' %}"></script>
+    <script src="{% static 'ckeditor/ckeditor/config.js' %}"></script>
+    <!--<script src="{% static 'ckeditor/ckeditor-init.js' %}"></script>-->
+{% endblock %}
+{% block content %}
+    <div class="place" id="pageContents">
+        {% for cate in CATEGORIES %}
+            {% ifequal cate article.category %}
+                <a href="{% url 'category' cate %}" id="pagecurrent">{{ cate|title }}</a>
+            {% else %}
+                <a href="{% url 'category' cate %}">{{ cate|title }}</a>
+            {% endifequal %}
+        {% endfor %}
+    </div>
+    <div class="infosbox">
+        <div class="newsview">
+            <h3 class="news_title">{{ article.title }}</h3>
+            <div class="bloginfo">
+                <ul>
+                    <li class="author">作者：{{ article.user }}</li>
+                    <li class="lmname">{{ article.category.name|title }}</li>
+                    <li class="timer">时间：{{ article.add_time }}</li>
+                    <li class="view">{{ article.click_nums }}人已阅读</li>
+                </ul>
+            </div>
+            <div class="tags">
+                {% for tag in article.tags.all %}
+                    <a href="/" target="_blank">{{ tag.name }}</a>
+                {% endfor %}
+            </div>
+            <div class="news_about"><strong>简介</strong>{{ article.desc|safe }}</div>
+            <div class="news_con">{{ article.detail|safe }}</div>
+        </div>
+        <div class="share">
+            <p class="diggit">
+                {% if has_praise %}
+                    <a href="JavaScript:makeRequest();" id="praise">已赞！</a>
+                {% else %}
+                    <a href="JavaScript:makeRequest();" id="praise">赞！</a>
+                {% endif %}
+                (<b id="diggnum">{{ article.praise_nums }}</b>)
+            </p>
+        </div>
+        <div class="nextinfo">
+            {% if pre_article %}
+                <p>上一篇：<a href="{% url 'detail' pre_article.id %}">{{ pre_article.title }}</a></p>
+            {% endif %}
+            {% if next_article %}
+                <p>下一篇：<a href="{% url 'detail' next_article.id %}">{{ next_article.title }}</a></p>
+            {% endif %}
+        </div>
+        <div class="news_pl">
+            <h2>文章评论</h2>
+            <ul>
+                <div class="gbko"></div>
+            </ul>
+            <h3>评论详情：</h3>
+            <hr>
+            <div class="news_about">
+                {% for comment in comments %}
+                    {{ comment.content |safe }}
+                    <p class="autor"><span class="lm f_l"></span><span class="dtime f_l">{{ forloop.counter }}楼&nbsp&nbsp&nbsp{{ comment.date_publish|date:'Y-m-d H:i' }}</span><span
+                            class="viewnum f_r">用户：{{ comment.user }}</span></p>
+                    <hr>
+                {% endfor %}
+                <form action="{% url 'comment' article.id %}" method="post">
+                    {% csrf_token %}
+                    <p>添加评论：</p>
+                    <textarea id='usertext' name="user_comment"
+                              style="height: 200px;width: 300px"></textarea>
+                    <input type="submit" value="提交评论">
+                </form>
+            </div>
+
+
+        </div>
+    </div>
+    <script>
+        function makeRequest() {
+            $.post(
+                "{% url 'praise' %}",   // post url
+                {
+                    "article_id": {{ article.id }},
+                    "category": 1,
+                    "csrfmiddlewaretoken": "{{ csrf_token }}"
+                },  // post data
+                function (praise_num) {
+                    $("#diggnum").text(praise_num);
+
+                    var txt = $("#praise").text();
+                    if (txt == "已赞！") {
+                        $("#praise").text("赞！")
+                    }
+                    if (txt == "赞！") {
+                        $("#praise").text("已赞！")
+                    }
+                }
+            )
+        }
+
+        window.onload = function () {
+            CKEDITOR.replace('usertext',
+                {
+                    toolbar:
+                        [
+                            //加粗     斜体，     下划线      穿过线      下标字        上标字
+                            ['Bold', 'Italic', 'Underline', 'Strike', 'Subscript', 'Superscript'],
+                            // 数字列表          实体列表            减小缩进    增大缩进
+                            ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent'],
+                            //左对 齐             居中对齐          右对齐          两端对齐
+                            ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'],
+                            //超链接  取消超链接 锚点
+                            ['Link', 'Unlink', 'Anchor'],
+                            //图片    flash    表格       水平线            表情       特殊字符        分页符
+                            ['Image', 'Flash', 'Table', 'HorizontalRule', 'Smiley', 'SpecialChar', 'PageBreak'],
+                            '/',
+                            // 样式       格式      字体    字体大小
+                            ['Styles', 'Format', 'Font', 'FontSize'],
+                            //文本颜色     背景颜色
+                            ['TextColor', 'BGColor'],
+                            //全屏           显示区块
+                            ['Maximize', 'ShowBlocks', '-']
+                        ],
+                    {#'extraPlugins': 'uploadimage'#}
+                    "filebrowserImageUploadUrl": "{% url 'ckeditor_upload' %}"
+                }
+            )
+        };
+    </script>
+{% endblock %}

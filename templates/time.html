@@ -1,0 +1,41 @@
+{% extends 'base-head.html' %}
+{% load staticfiles %}
+{% block css-js %}
+    <link href="{% static 'css/base.css' %}" rel="stylesheet">
+    <link href="{% static 'css/time.css' %}" rel="stylesheet">
+    <link href="{% static 'css/m.css' %}" rel="stylesheet">
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'js/scrollReveal.js' %}"></script>
+    <script src="{% static 'js/time.js' %}"></script>
+{% endblock %}
+{% block content %}
+    <div class="timebox">
+        <ul>
+            {% for article in curr_page.object_list %}
+                <li><span>{{ article.add_time|date:'Y-m-d' }}</span><i><a href="{% url 'detail' article.id %}" target="_blank">{{ article.title }}</a></i></li>
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="pagelist">
+        <a title="Total record">&nbsp;<b>共 {{ curr_page.paginator.num_pages }} 页</b></a>
+        {% if curr_page.has_previous %}
+            <a href="?{{ curr_page.previous_page_number.querystring }}">上一页</a>
+        {% endif %}
+        {% for page in curr_page.pages %}
+            {% if page %}
+                {% ifequal page curr_page.number %}
+                    <b>{{ page }}</b>
+                {% else %}
+                    <a href="?{{ page.querystring }}" class="page">{{ page }}</a>
+                {% endifequal %}
+            {% else %}
+                ...
+            {% endif %}
+        {% endfor %}
+        {% if curr_page.has_next %}
+            <a href="?{{ curr_page.next_page_number.querystring }}">下一页</a>
+        {% endif %}
+
+    </div>
+
+{% endblock %}

@@ -1,0 +1,1547 @@
+# coding=UTF-8
+import os
+import sys
+import re
+import tempfile
+import string
+import random
+import pickle
+import traceback
+from random import randint
+import urllib
+import urllib2
+import urlparse
+import MySQLdb
+import MySQLdb.cursors
+import socket
+import json
+import ConfigParser
+import binascii
+import psutil
+import datetime
+import subprocess
+import threading
+import imaplib
+import requests
+import Queue
+import logging
+import argparse
+import time
+from time import sleep, time, gmtime
+import win32api
+import pywintypes
+from shutil import copyfile, copytree, rmtree
+from selenium import webdriver
+from pywinauto.application import Application
+import pywinauto
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+from selenium.webdriver.common.proxy import *
+from selenium.webdriver.common.keys import Keys
+from Tkinter import *
+from ttk import *
+from tkFileDialog import askopenfilename
+from captcha2upload import CaptchaUpload
+from HTMLParser import HTMLParser
+from email.header import decode_header, make_header
+from email.parser import Parser
+
+releaseversion = "1.0.7"
+
+states = {
+        'AK': 'Alaska',
+        'AL': 'Alabama',
+        'AR': 'Arkansas',
+        'AS': 'American Samoa',
+        'AZ': 'Arizona',
+        'CA': 'California',
+        'CO': 'Colorado',
+        'CT': 'Connecticut',
+        'DC': 'District of Columbia',
+        'DE': 'Delaware',
+        'FL': 'Florida',
+        'GA': 'Georgia',
+        'GU': 'Guam',
+        'HI': 'Hawaii',
+        'IA': 'Iowa',
+        'ID': 'Idaho',
+        'IL': 'Illinois',
+        'IN': 'Indiana',
+        'KS': 'Kansas',
+        'KY': 'Kentucky',
+        'LA': 'Louisiana',
+        'MA': 'Massachusetts',
+        'MD': 'Maryland',
+        'ME': 'Maine',
+        'MI': 'Michigan',
+        'MN': 'Minnesota',
+        'MO': 'Missouri',
+        'MP': 'Northern Mariana Islands',
+        'MS': 'Mississippi',
+        'MT': 'Montana',
+        'NA': 'National',
+        'NC': 'North Carolina',
+        'ND': 'North Dakota',
+        'NE': 'Nebraska',
+        'NH': 'New Hampshire',
+        'NJ': 'New Jersey',
+        'NM': 'New Mexico',
+        'NV': 'Nevada',
+        'NY': 'New York',
+        'OH': 'Ohio',
+        'OK': 'Oklahoma',
+        'OR': 'Oregon',
+        'PA': 'Pennsylvania',
+        'PR': 'Puerto Rico',
+        'RI': 'Rhode Island',
+        'SC': 'South Carolina',
+        'SD': 'South Dakota',
+        'TN': 'Tennessee',
+        'TX': 'Texas',
+        'UT': 'Utah',
+        'VA': 'Virginia',
+        'VI': 'Virgin Islands',
+        'VT': 'Vermont',
+        'WA': 'Washington',
+        'WI': 'Wisconsin',
+        'WV': 'West Virginia',
+        'WY': 'Wyoming'
+}
+
+class DriverManager():
+  def __init__(self, driver):
+      self.driver = driver
+  def __enter__(self):
+      return self.driver
+  def __exit__(self, type, value, traceback):
+      logger.debug('driver will quit')
+      self.driver.execute_script('window.stop();')
+      sleep(2)
+      self.driver.quit()
+      logger.debug('driver has quit')
+
+mailprovider = {'outlook' : ('imap-mail.outlook.com', 993),
+                'hotmail' : ('imap-mail.outlook.com', 993),
+                'yahoo' : ('imap.mail.yahoo.com', 993)}
+
+def getmsg(data):
+  try:
+    message = Parser().parsestr(data)
+    print 'date', message['Date']
+    print 'from', message['From']
+    print 'subject', message['Subject']
+    dh = decode_header(message['Subject'])
+    default_charset = 'ASCII'
+    subject = ''.join([unicode(t[0], t[1] or default_charset) for t in dh ])
+    #print subject
+
+    body = ''
+    for part in message.walk():
+      content_type = part.get_content_type()
+      if content_type and ('plain' in content_type or 'html' in content_type):
+        #print 'type:', content_type
+        bodypart = part.get_payload(decode=True)
+        #print bodypart
+        if bodypart:
+          body += bodypart
+    print 'body:'
+    print body[0:60]
+    print '='*80
+
+    return (message['from'], subject, body)
+  except:
+    traceback.print_exc()
+
+  return ('', '', '')
+
+def matchlink(M, messages, subject_re, url_re, fetch):
+  h = HTMLParser()
+  for num in messages:
+    typ, data = M.fetch(num, '(RFC822)')
+    print 'Message:', num
+    _from, subject, body = getmsg(data[0][1])
+
+    ms = True
+    if subject_re:
+      ms = re.search(subject_re, subject)
+
+    if ms:
+      links = re.findall(r'''https*://[^ '"<>\)\(,\s]+''', body)
+      for x in links:
+        url = h.unescape(x)
+        print 'url:', url
+        mu = True
+        if url_re:
+          mu = re.search(url_re, url)
+
+        if mu:
+          print 'activate link: %s' % url
+          if fetch:
+            s = urllib2.urlopen(url)
+            print s.info()
+          if url_re:
+            return url
+
+      if subject_re:
+        return True
+
+  return (subject_re == None and url_re == None)
+
+def imapverify(host, port, user, password, subject_re=None, url_re=None, fetch=True):
+  M = imaplib.IMAP4_SSL(host, port)
+  try:
+    M.login(user, password)
+    #print M.lsub()
+    M.select()
+    typ, data = M.search(None, 'ALL')
+    r = matchlink(M, data[0].split(), subject_re, url_re, fetch)
+
+    if r:
+      return r
+
+    M.select('Junk')
+    typ, data = M.search(None, 'ALL')
+    r = matchlink(M, data[0].split(), subject_re, url_re, fetch)
+    return r
+  finally:
+    M.close()
+    M.logout()
+
+def wait_for(condition_function):
+  start_time = time()
+  while time() < start_time + 60:
+    if condition_function():
+      return True
+    else:
+      sleep(0.1)
+  return False
+
+def wait(driver):
+  def page_has_loaded():
+    page_state = driver.execute_script('return document.readyState;')
+    return page_state == 'complete'
+
+  wait_for(page_has_loaded)
+
+def parse(template):
+  lines = template.split('\n')
+  cmdlist = []
+  i = 0
+  script = ''
+  for each in lines:
+    i += 1
+    each = each.rstrip()
+    fields = [x.rstrip() for x in each.split('|}')]
+    length = len(fields)
+
+    if length > 3 or (length == 3 and fields[2] not in ['click', 'begin', 'end', 'wait', 'select', 'selectv', 'input']):
+      logger.warning('Wrong command at line {0}: {1}'.format(i, each))
+      continue
+
+    if length == 1:
+      script += fields[0] + '\n'
+    else:
+      if len(script) > 0:
+        cmdlist.append([script])
+        script = ''
+      cmdlist.append(fields)
+
+  if len(script) > 0:
+    cmdlist.append([script])
+
+  return cmdlist
+
+# gms_tags   查询到的 taskid = offerid  执行任务的
+def getcmds(cur, offerid):
+  cur.execute('select xpath, value, action, precode from gms_tags where taskid = %s order by sort', (offerid,))
+  all = cur.fetchall()
+
+  cmdlist = []
+  for each in all:
+    xpath, value, action, precode = each
+    if precode and len(precode) > 0:
+      cmdlist.append((precode,))
+
+    cmdlist.append((xpath, value, action))
+
+  print cmdlist
+
+  return cmdlist
+
+def decaptcha(driver, imgurl):
+  curwin = driver.current_window_handle
+  driver.execute_script('window.open("", "newcaptchawin");')
+  driver.switch_to_window(driver.window_handles[-1])
+  driver.get('about:cache-entry?storage=disk&context=&eid=&uri={0}'.format(imgurl))
+  html = driver.page_source
+  #print html
+  m = re.search('<pre>(.*)</pre>', html, re.DOTALL)
+  hex = m.group(1)
+  hex = hex.strip()
+  #print hex
+  lines = [x.strip() for x in hex.split('\n')]
+  hexstr = ''
+  for each in lines:
+    each = each[10:74]
+    hexstr += each.replace(' ','')
+
+  #print hexstr
+  bin = binascii.unhexlify(hexstr)
+
+  if not os.path.exists('img'):
+    os.mkdir('img')
+
+  imgfile = datetime.datetime.now().strftime('img/%Y%m%d%H%M%S.jpeg')
+  f = open(imgfile, 'wb')
+  f.write(bin)
+  f.close()
+
+  driver.execute_script('newcaptchawin = window.open("", "newcaptchawin"); newcaptchawin.close();')
+  driver.switch_to_window(curwin)
+
+  captcha = CaptchaUpload('b870ba1a5bc718ba4f0fa32b1f2f2e87')
+  decaptchacode = captcha.solve(imgfile)
+  logger.debug('decaptcha: %s, %s', imgfile, decaptchacode)
+
+  return decaptchacode
+
+def validate(driver, offerid, title):
+  logger.info('validate title: %s', title)
+  if re.search(title, driver.title):
+    resultque.put((2,(offerid,1)))
+  else:
+    resultque.put((2,(offerid,0)))
+
+def apply(driver, url, cmdlist, offerid, **keywords):
+  try:
+    for k, v in keywords.iteritems():
+      logger.debug('%s : %s', k, v)
+      if type(v) is str:
+        exec '%s="%s"' % (k, v)
+      else:
+        exec '%s=%s' % (k, v)
+    #locals().update(keywords)
+
+    driver.get(url)
+    #wait(driver)
+    sleep(5)
+
+    firstwait = True
+    result = True
+    interval = 1
+    parent = [driver]
+    for each in cmdlist:
+      logger.debug(each)
+      if len(each) == 1:
+        exec each[0]
+      else:
+        if len(each) == 2:
+          (xpath, expression), action = each, 'input'
+        elif len(each) == 3:
+          xpath, expression, action = each
+
+        if action == 'end':
+          parent.pop()
+        elif action == 'wait':
+          value = eval('{0}'.format(expression))
+          logger.debug(value)
+
+          elem = WebDriverWait(driver, value).until(EC.presence_of_element_located((By.XPATH, xpath)))
+        else:
+          if firstwait:
+            elem = WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, xpath)))
+            firstwait = False
+          else:
+            elem = parent[-1].find_element_by_xpath(xpath)
+
+          value = eval('{0}'.format(expression))
+          logger.debug(value)
+
+          if action == 'click':
+            if value:
+                driver.execute_script("arguments[0].scrollIntoView(false);", elem)
+                elem.click()
+          elif action == 'input':
+            elem.send_keys(value)
+          elif action == 'select':
+            #driver.execute_script("arguments[0].getElementsByTagName('option')[arguments[1]].selected = 'selected';", elem, value)
+            option = elem.find_element_by_xpath("./option[{0}]".format(int(value) + 1))
+            option.click()
+          elif action == 'selectv':
+            option = elem.find_element_by_xpath("./option[@value='{0}']".format(value))
+            #driver.execute_script("arguments[0].selected = 'selected';", option)
+            option.click()
+          elif action == 'decap':
+            imgurl = elem.get_attribute('src')
+            logger.debug('captcha img url: %s', imgurl)
+            cap_code = decaptcha(driver, imgurl)
+          elif action == 'begin':
+            parent.append(elem)
+
+          if interval:
+            sleep(interval)
+
+    #driver.switch_to_default_content()
+    #WebDriverWait(driver, 120).until(EC.presence_of_element_located((By.XPATH, "//*[contains(translate(text(), 'ABCDEFGHJIKLMNOPQRSTUVWXYZ', 'abcdefghjiklmnopqrstuvwxyz'), 'congrat')]|//*[contains(text(), 'Unfortunately we are unable')]")))
+    return result
+  except:
+    #print "Unexpected:", sys.exc_info()[0]
+    logger.exception("Unexpected in apply:")
+
+  return False
+
+def getUA():
+  return ualist[randint(0, len(ualist) - 1)]
+
+driverlock = threading.Lock()
+# 使用谷歌浏览器 配置ip ua 信息
+def filling():
+  while app.started.is_set():
+    task = taskque.get()
+    try:
+      id, url, userdata, ua, cmdlist, socks5proxy, browser, loadimg = task
+      logger.info('start filling [%s] %s UserData [%s] UA %s' % (id, url, userdata.get('ID', None), ua))
+      with driverlock:
+        if browser == 2:
+          options = webdriver.ChromeOptions()
+          options.add_argument("user-agent={0}".format(ua))
+          options.add_extension('c:\\auto\\webrtc.crx')
+          if loadimg == 0:
+            prefs = {"profile.managed_default_content_settings.images":2}
+            options.add_experimental_option("prefs",prefs)
+          if socks5proxy:
+            ip, port = socks5proxy
+            options.add_argument("--proxy-server=socks5://{0}:{1}".format(ip, port))
+
+          driver = webdriver.Chrome('c:\\auto\\chromedriver.exe', chrome_options=options)
+          sleep(5)
+          if len(driver.window_handles) > 1:
+            driver.switch_to_window(driver.window_handles[-1])
+            driver.close()
+            driver.switch_to_window(driver.window_handles[0])
+        else:
+          profile = webdriver.FirefoxProfile()
+          profile.set_preference("browser.cache.disk.enable", False)
+          profile.set_preference("browser.cache.memory.enable", False)
+          profile.set_preference("browser.cache.offline.enable", False)
+          profile.set_preference("network.http.use-cache", False)
+          profile.set_preference("general.useragent.override", ua)
+          if int(loadimg) == 0:
+            print 'disable image'
+            profile.set_preference("permissions.default.image", 2)
+
+          if socks5proxy:
+            ip, port = socks5proxy
+            profile.set_preference("network.proxy.type", 1)
+            profile.set_preference("network.proxy.socks", ip)
+            profile.set_preference("network.proxy.socks_port", int(port))
+            profile.set_preference("network.proxy.socks_version", 5)
+            profile.set_preference("network.proxy.socks_remote_dns", True)
+
+          profile.add_extension(webrtc)
+
+          #print profile.path
+          sleep(2)
+          driver = webdriver.Firefox(profile)
+
+      with DriverManager(driver):
+        driver.maximize_window()
+        driver.set_page_load_timeout(180)
+        r = apply(driver, url, cmdlist, id, **userdata)
+        if r:
+          logger.info('apply successfully for [%s] %s UserData [%s]' % (id, url, userdata.get('ID', None)))
+          resultque.put((1, (id,)))
+        else:
+          logger.info('Fail to apply for [%s] %s UserData [%s]' % (id, url, userdata.get('ID', None)))
+
+    except:
+      logger.exception(("Unexpected: when filling {0}".format(url)))
+    finally:
+      taskque.task_done()
+
+  logger.info('quit filling')
+
+def getemail(cur, emailtable, taskid, sameoffer):
+  if sameoffer:
+    offersql = 'taskid in ({0})'.format(sameoffer)
+  else:
+    offersql = 'taskid={0}'.format(taskid)
+
+  cur.execute("select id, email, password from {0} where email not in (select email from gms_email_history where {1}) order by rand()".format(emailtable, offersql))
+  return cur.fetchone()
+# email 表
+def imapactive(driver, active_data, subject_re=None, url_re=None):
+  active = 0
+
+  try:
+    m = re.search('@([^.]+)', active_data['email'])
+    if m == None:
+      print 'wrong email address, quit'
+      return False
+
+    domain = m.group(1)
+    domain = domain.lower()
+    print 'email provider: ', domain
+
+    if domain not in mailprovider:
+      print 'unsupported mail provider %s, quit' % domain
+      return False
+
+    host, port = mailprovider[domain]
+    print host, port
+
+    i = 0
+    while i < 3:
+      r = imapverify(host, port, active_data['email'], active_data['password'], subject_re, url_re, fetch=False)
+      print r
+      if r:
+        driver.get(r)
+        sleep(randint(5,10))
+        active = 1
+        break
+      i += 1
+      sleep(30)
+  finally:
+    #with MySQLdb.connect(host='45.63.87.251', user="autoreg", passwd="hugpils39#1", db="offerstop") as cur:
+    with MySQLdb.connect(host=db_host, user=db_user, passwd=db_passwd, db=db_database) as cur:
+      cur.execute("insert into gms_email_history(tablename, taskid, emailid, email, account, passwd, active, timestamp) values(%s,%s,%s,%s,%s,%s,%s,now())",
+        (active_data['tablename'], active_data['taskid'], active_data['emailid'], active_data['email'], active_data.get('account'), active_data['password'], active))
+
+ipchecker = ('http://ip-api.com/json', 'http://freegeoip.net/json')
+
+pn = 0
+
+def fetchip():
+  global pn
+
+  try:
+    s = urllib2.urlopen(ipchecker[pn])
+    html = s.read()
+    logger.debug(html)
+    ipinfo = json.loads(html)
+
+    if pn == 0:
+      return (ipinfo['query'], ipinfo['region'])
+    else:
+      return (ipinfo['ip'], ipinfo['region_name'])
+  except:
+    #print("Unexpected:", sys.exc_info()[0])
+    logger.exception("Unexpected in fetchip %s:", ipchecker[pn])
+    #print sys.exc_info()
+    pn = (pn + 1) % len(ipchecker)
+    print ipchecker[pn]
+
+    return False
+
+def fetchip2():
+  try:
+    s = urllib2.urlopen('http://api.ipify.org')
+    html = s.read()
+    logger.debug(html)
+    return html
+  except:
+    logger.exception("Unexpected in fetchip2 %s:", 'api.ipify.org')
+    return False
+
+todaylist = []
+notonline = []
+
+def fetchtodaylist(curtoday, curip, state):
+  del todaylist[:]
+  logger.debug('todaylist country: %s', country)
+  #curtoday.execute('select ProxyIP, state from todaylist where Country = %s and BuyTime > now() - interval 22 hour', (country,))
+
+  adstr, offeridstr, offernamestr, statestr = 0, 0, 0, 1
+
+  if networkNames:
+    adstr = ','.join(["'{0}'".format(x) for x in networkNames])
+    adstr = "Advertisers in ({0})".format(adstr)
+
+  if offerNames:
+    offernamestr = ','.join(["'{0}'".format(x) for x in offerNames])
+    offernamestr = "offerName in ({0})".format(offernamestr)
+
+  if offerIDs:
+    offeridstr = ','.join([str(x) for x in offerIDs])
+    offeridstr = "OfferID in ({0})".format(offeridstr)
+
+  if state:
+    statestr = ','.join(["'{0}'".format(x) for x in state])
+    statestr = "State in ({0})".format(statestr)
+
+  ipsql = "select ProxyIP, State from `{4}` where ProxyIP != %s and Country = %s and {0} and (BuyTime > now() - interval 22 hour) and ProxyIP not in (select IP from todaylisthistory where Date > (CURDATE() - INTERVAL 15 DAY) and ({1} or {2} or {3})) order by rand()".format(statestr, adstr, offeridstr, offernamestr,today_table)
+  logger.debug('%s', ipsql)
+
+  curtoday.execute(ipsql, (curip if curip else '', country))
+
+  all = curtoday.fetchall()
+
+  for each in all:
+    ip, ipstate = each
+    if each not in todaylist and ip not in notonline:
+      todaylist.append(each)
+# 代理ip获取
+def switchtodaylist(curtoday, curip, state):
+  i = 0
+
+  while i < 10:
+    if len(todaylist) == 0:
+      logger.warning('No todaylist IP available')
+      return False
+
+    todayproxy, ipstate = todaylist.pop()
+
+    logger.info('todaylist proxy: %s', todayproxy)
+    changeip = '{0} -ip {1}'.format(changeproxyapiip, todayproxy)
+
+    p = subprocess.Popen(changeip, stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE, creationflags=0x00000008)
+
+    n = 0
+    while p.poll() == None and n < 30:
+      n += 1
+      sleep(1)
+
+    if p.poll() == None:
+      logger.warning('Client not respond')
+      p.kill()
+      return False
+
+    r = p.communicate()
+    sout, serr = r
+    sout = sout.decode('gbk')
+    logger.info('todaylist %s, %s' % (i, sout))
+
+    i += 1
+
+    if 'IP' in sout:
+      logger.warning('IP %s not online' % todayproxy)
+      notonline.append(todayproxy)
+      sleep(5)
+    elif 'Client' in sout:
+      logger.warning('Client not started')
+      return False
+    else:
+      return (todayproxy, ipstate)
+
+  return False
+
+def switchproxy(proxymode, localip, curip, curtoday, state):
+  try:
+    if proxymode == 1:
+      fetchtodaylist(curtoday, curip, state)
+      if len(notonline) > 500:
+        del notonline[0:250]
+
+    t = 0
+    while t < 3:
+      ipinfo = False
+      todayproxy = ''
+      if proxymode == 1:
+        todayproxy = switchtodaylist(curtoday, curip, state)
+        if todayproxy == False:
+          break
+        todayproxy, ipstate = todayproxy
+      elif proxymode == 2:
+        if state:
+          ipstate = state[randint(0, 324532)%len(state)]
+          autocmdline = '{0}/{1}/{2}'.format(autoproxy, country if country else 'US', ipstate)
+        else:
+          autocmdline = '{0}/{1}'.format(autoproxy, country if country else 'US')
+
+        r = subprocess.call(autocmdline)
+        logger.info('autoproxy %s, %s' % (t, r))
+        sleep(3)
+
+      t += 1
+      sleep(5)
+
+      e = 0
+      while ipinfo == False and e < 3:
+        logger.debug('get ip address no. %s' % e)
+        if proxymode == 2:
+          ipinfo = fetchip()
+          logger.debug(ipinfo)
+        else:
+          ip = fetchip2()
+          if ip:
+            ipinfo = (ip, ipstate)
+
+        if ipinfo:
+          if ipinfo[0] in (localip, curip):
+            logger.info('%s is local IP or previous IP, refetch' % ipinfo[0])
+            ipinfo = False
+          elif proxymode == 1 and ipinfo[0] != todayproxy:
+            logger.debug('%s is not specified ip %s', ipinfo[0], todayproxy)
+            ipinfo = (todayproxy, ipinfo[1])
+          elif ipinfo[0] in usedip:
+            logger.info('%s is used before, refetch' % ipinfo[0])
+            ipinfo = False
+            break
+
+        e += 1
+        sleep(10)
+
+      if ipinfo != False:
+        break
+
+    if ipinfo == False:
+      if proxymode == 1 and len(todaylist) == 0:
+        pass
+      else:
+        restart911()
+
+    return ipinfo
+
+  except:
+    logger.exception('exception in switchproxy:')
+  finally:
+    pass
+
+  return False
+
+socks5 = []
+
+def gets5proxy(curtoday):
+  proxy = None
+
+  for each in socks5:
+    ip, port = each
+    if ip not in usedip:
+      proxy = each
+      socks5.remove(each)
+      break
+#
+  if proxy == None:
+    del socks5[:]
+    curtoday.execute('select ip_port from ipandport')
+    all = curtoday.fetchall()
+    for each in all:
+      ipport, = each
+      fields = ipport.split(':')
+      if len(fields) != 2:
+        continue
+      fields = [x.strip() for x in fields]
+      ip, port = fields
+      socks5.append((ip, int(port)))
+
+    for each in socks5:
+      ip, port = each
+      if ip not in usedip:
+        proxy = each
+        socks5.remove(each)
+        break
+
+  return proxy
+
+workthreads = []
+taskque = Queue.Queue()
+usedip = set()
+resultque = Queue.Queue()
+localip = None
+statefield = 'State'
+country = None
+
+networkNames = set()
+offerNames = set()
+offerIDs = set()
+
+def control():
+  global workthreads, localip, emuapp, proxymode, country, networkNames, offerNames, offerIDs
+  conn, conntoday = None, None
+  try:
+    curip = None
+
+    sleep(5)
+
+    while app.started.is_set():
+      modifyinfo = 0
+
+      #conn = MySQLdb.connect(host='45.63.87.251', user="autoreg", passwd="hugpils39#1", db="offerstop")
+      conn = MySQLdb.connect(host=db_host, user=db_user, passwd=db_passwd, db=db_database)
+      conn.ping(True)
+      cur = conn.cursor()
+
+      checkpanel(cur, localip)
+
+      cur.execute('select ID, networkName, offerName, OfferID, url, srctable, Total, successtotal, dailyrun, dailysuccess, modifyinfo, proxymode, hours, lastrun, UA, Browser, state, country, sameoffer, emailtable, loadimg, now() from gms_offer o left join gms_daily d on o.id = d.pid and d.create_date = CURDATE() where status = 1 and (dailyrun is NULL or dailyrun < Total) and (dailysuccess is NULL or dailysuccess < successtotal) and machine like %s order by rand()', ('%{0}%'.format(hostcode),))
+      all = cur.fetchall() # 查询所有数据
+
+      tasklist = []
+      networkNames = set()
+      offerNames = set()
+      offerIDs = set()
+      country = None
+      for each in all:
+        id, networkName, offerName, offerid, link, srctable, total, successtotal, dailyrun, dailysuccess, modifyinfo_, proxymode_, hours, lastrun, uatable, browser, state, country_, sameoffer, emailtable, loadimg, dbnow = each
+        logger.debug('%s', each)
+        link = link.replace('&amp;', '&')
+        if (len(offerName) and offerName[0] == '#' and offerName in offerNames) or networkName in networkNames or offerid in offerIDs:
+          logger.debug('networkName %s or offerid %s exist, ignore link %s', networkName, offerid, link)
+          continue
+
+        nowhour = dbnow.hour
+
+        if hours and len(hours.strip()) > 0:
+          hours = [int(x.strip()) for x in hours.split(',')]
+          if nowhour not in hours:
+            logger.debug("It's not hour for link [%s] %s", id, link)
+            continue
+
+          resthours = len(hours)
+        else:
+          resthours = 24
+
+        interval = resthours*60/(total + 1)
+
+        if interval > 60:
+          interval = 60
+        logger.debug("hours: %s, interval: %s", resthours, interval)
+        if lastrun and dbnow < lastrun + datetime.timedelta(minutes=interval):
+          logger.debug("It's not time for link [%s] %s", id, link)
+          continue
+
+        cmdlist = getcmds(cur,offerid)
+        if len(cmdlist) == 0:
+          logger.warning('No script for offerid %s, %s', id, link) # id = ta
+          continue
+
+        if dailyrun == None:
+          cur.execute('insert into gms_daily(pid, dailyrun, dailysuccess, create_date) values(%s, 0, 0, CURDATE())', (id,))
+          conn.commit()
+          dailyrun = 0
+          dailysuccess = 0
+
+        modifyinfo = modifyinfo_
+        if country_:
+          country = country_
+
+        if proxymode != proxymode_:
+          proxymode = proxymode_
+          configchanged.set()
+
+        if state:
+          state = [x.strip() for x in state.split(',')]
+          if len(state) == 0:
+            state = None
+
+        tasklist.append([id, networkName, offerName, offerid, link, srctable, total, successtotal, dailyrun, dailysuccess, uatable, browser, state, sameoffer, emailtable, loadimg, cmdlist])
+
+        if len(offerName) and offerName[0] == '#':
+          offerNames.add(offerName)
+        else:
+          networkNames.add(networkName)
+          offerIDs.add(offerid)
+
+        if len(tasklist) >= maxthread:
+          break
+
+      if len(tasklist) == 0:
+        logger.info('there are no tasks to do, sleep 60 seconds')
+        sleep(60)
+        continue
+
+      if not country:
+        country = 'US'
+
+      #conntoday = MySQLdb.connect(host='104.156.229.207', user="todaylist_system", passwd="4242587f", db="todaylist_data")
+      conntoday = MySQLdb.connect(host=today_host, user=today_user, passwd=today_passwd, db=today_database)
+      conntoday.ping(True)
+      curtoday = conntoday.cursor()
+
+      if modifyinfo:
+        startemu()
+        if modifymachine() == False:
+          emuapp = None
+
+      # (1L, 'PX', '#iFrame Auto111', 3035L,
+      #  'http://t.bqtrk2.com/aff_c?offer_id=513&aff_id=356&aff_sub=SOURCE-ID&aff_sub2=CLICK-ID', 'Netloan_2018_05_10_00',
+      #  1L, 1L, 0L, 0L, 0L, 1L, '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0',
+      #  datetime.datetime(2018, 12, 2, 23, 42, 23), 'gms_ua_list_2018_04', 1L, None, '', None, None, 1L,
+      #  datetime.datetime(2019, 10, 30, 12, 0, 57))
+      if proxymode == 3:
+        for proc in psutil.process_iter():
+          if proc.name() in ['Client.exe', 'Proxifier.exe', 'Proxifier-1.exe']:
+            logger.info('kill %s', proc.name())
+            proc.kill()
+
+        socks5proxy = gets5proxy(curtoday)
+        if socks5proxy == None:
+          logger.warning('No socks5 proxy available')
+          continue
+        ipinfo = (socks5proxy[0], '')
+        logger.debug('sock5 proxy: %s', socks5proxy)
+      else:
+        socks5proxy = None
+        start911()
+        ipinfo = switchproxy(proxymode, localip, curip, curtoday, state)
+        if ipinfo == False:
+          logger.debug('Fail to switch IP')
+          sleep(60)
+          continue
+
+      curip, region = ipinfo
+      logger.debug("%s %s", curip, region)
+      usedip.add(curip)
+
+      dictcur = conn.cursor(cursorclass=MySQLdb.cursors.DictCursor)
+
+      while len(workthreads) < len(tasklist):
+        t = threading.Thread(target = filling)
+        t.daemon = True
+        t.start()
+        workthreads.append(t)
+
+      logger.debug('threads: %s, tasks: %s', len(workthreads), len(tasklist))
+
+      conn.commit()
+
+      for each in tasklist:
+        id, networkName, offername, offerid, link, srctable, total, successtotal, dailyrun, dailysuccess, uatable, browser, state, sameoffer, emailtable, loadimg, cmdlist = each
+        logger.info('dailyrun: %s', dailyrun)
+        if dailyrun >= total or dailysuccess >= successtotal:
+          logger.info('task {0}, {1} reach limit'.format(id, link))
+          continue
+
+        offersql = ''
+        if sameoffer:
+          offersql = 'offerid in ({0})'.format(sameoffer)
+        else:
+          offersql = 'offerid={0}'.format(offerid)
+
+        logger.debug('offer sql: %s', offersql)
+
+        userdata = None
+        if state:
+          stateNames = ['"' + states.get(x, '') + '"' for x in state]
+          statestr = '({0})'.format(','.join(stateNames))
+          print statestr
+          region = states.get(region, '')
+          dictcur.execute('select *, {1} = %s as c123 from {0} where {1} in {2} and ID not in (select userid from gms_userdata_history where srctable = %s and {3}) order by c123 desc limit 1'.format(srctable, statefield, statestr, offersql),
+                      (region, srctable))
+          userdata = dictcur.fetchone()
+          if userdata == None:
+            logger.warning('No user data for %s in task %s, %s', state, id, link)
+            continue
+        elif region:
+          dictcur.execute('select * from {0} where {1} = %s and ID not in (select userid from gms_userdata_history where srctable = %s and {2}) limit 1'.format(srctable, statefield, offersql),
+                      (states.get(region, ''), srctable))
+          userdata = dictcur.fetchone()
+
+        if userdata == None:
+          logger.info('no matched record for %s' % region)
+          dictcur.execute('select * from {0} where ID not in (select userid from gms_userdata_history where srctable = %s and {1}) limit 1'.format(srctable, offersql),
+                      (srctable,))
+          userdata = dictcur.fetchone()
+        if userdata == None:
+          logger.warning('No user data for link [%s] %s', id, link)
+          continue
+
+        ua = None
+        if uatable != None and len(uatable) > 0:
+          cur.execute('select ua from {0} order by rand() limit 1'.format(uatable))
+          one = cur.fetchone()
+          if one != None:
+            ua, = one
+
+        if ua == None:
+          ua = getUA()
+
+        if emailtable != None:
+          one = getemail(cur, emailtable, offerid, sameoffer)
+          if not one:
+            logger.warning('No email link [%s] %s', id, link)
+            continue
+
+          emailid, email, password = one
+          print emailid, email, password
+          userdata['active_data'] = {}
+          active_data = userdata['active_data']
+          active_data['emailid'] = emailid
+          active_data['email'] = email
+          active_data['password'] = password
+          active_data['tablename'] = emailtable
+          active_data['taskid'] = offerid
+
+        taskque.put((id, link, userdata, ua, cmdlist, socks5proxy, browser, loadimg))
+        dailyrun += 1
+        each[8] += 1
+        dictcur.execute('update gms_offer set lastrun = now() where ID = %s', (id, ))
+        dictcur.execute('update gms_daily set dailyrun = %s where pid = %s and create_date = CURDATE()', (dailyrun, id))
+        dictcur.execute('insert into gms_userdata_history(userid, srctable, networkName, offerid, usedtime) values(%s, %s, %s, %s, now())',
+                     (userdata['ID'], srctable, networkName, offerid))
+        conn.commit()
+        curtoday.execute("insert into todaylisthistory(Advertisers, OfferName, OfferID, IP, Date, Time) values(%s, %s, %s, %s, now(), 0)",
+                     (networkName, offername, offerid, curip))
+        conntoday.commit()
+
+      sleep(3)
+
+      while not taskque.empty() and len(workthreads) < 100:
+        logger.debug('{0} tasks not taken {1} threads'.format(taskque.qsize(), len(workthreads)))
+        t = threading.Thread(target = filling)
+        t.daemon = True
+        t.start()
+        workthreads.append(t)
+        sleep(3)
+
+      if not taskque.empty():
+        logger.error('something is wrong, quit, {0} tasks not taken {1} threads'.format(taskque.qsize(), len(workthreads)))
+        break
+
+      #taskque.join()
+      stop = time() + 1200
+      while taskque.unfinished_tasks and time() < stop:
+        dealresp(dictcur, tasklist)
+        conn.commit()
+        sleep(1)
+
+      if taskque.unfinished_tasks:
+        logger.warning('task timeout: %s tasks unfinished', taskque.unfinished_tasks)
+
+      sleep(5)
+
+      dealresp(dictcur, tasklist)
+      conn.commit()
+
+      workthreads = [x for x in workthreads if x.is_alive()]
+
+      for proc in psutil.process_iter():
+        if proc.name() == 'firefox.exe' or proc.name() == 'chrome.exe' or proc.name() == 'chromedriver.exe':
+          proc.kill()
+
+      cleantmp()
+
+    logger.info('quit control thread')
+  except:
+    logger.exception('exception in control')
+  finally:
+    for proc in psutil.process_iter():
+      if proc.name() == 'firefox.exe' or proc.name() == 'chrome.exe' or proc.name() == 'chromedriver.exe':
+        proc.kill()
+    if conn: conn.close()
+    if conntoday: conntoday.close()
+
+def dealresp(cur, tasklist):
+  while not resultque.empty():
+    response = resultque.get()
+    respcode, respdata = response
+    if respcode == 1:
+      taskid, = respdata
+      logger.debug('task [%s] success' % taskid)
+      cur.execute('update gms_daily set dailysuccess = dailysuccess + 1 where pid = %s and create_date = CURDATE()', (taskid,))
+      for task in tasklist:
+        if task[0] == taskid:
+          task[9] += 1
+    elif respcode == 2:
+      offerid, matched = respdata
+      logger.debug('task [%s] match: %s', offerid, matched)
+      cur.execute('update gms_validate set matched = %s, update_time = now() where offerid = %s', (matched, offerid))
+      if cur.rowcount == 0:
+        cur.execute('insert into gms_validate(offerid, matched, update_time) values(%s, %s, now())', (offerid, matched))
+
+ie = 0
+firefox = 0
+chrome = 0
+others = 0
+maxthread = 5
+proxymode = 1
+
+ie_count = 0
+firefox_count = 0
+chrome_count = 0
+others_count = 0
+
+ualist = ['Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.120 Safari/537.36']
+
+configchanged = threading.Event()
+
+def checkpanel(cur,localip):
+  global ie, firefox, chrome, others, maxthread, ie_count, firefox_count, chrome_count, others_count, ualist
+
+  cur.execute('select ID, status, timestamp from gms_hostatus where hostcode = %s', (hostcode,))
+  one = cur.fetchone()
+  if one != None:
+    id, status, timestamp = one
+    logger.debug( 'checking dashboard %s', id)
+    if status == 0 or status == 2:
+      logger.debug('update heartbeat')
+      cur.execute('update gms_hostatus set timestamp = now(), status = 0, host=%s where id = %s', (localip, id))
+    elif status == 1:
+      logger.info('will restart machine')
+      app.started.clear()
+      #win32api.InitiateSystemShutdown(None, '', 0, True, True)
+      os.system('shutdown -r -t 0')
+      cur.execute('update gms_hostatus set timestamp = now(), status = 2 where id = %s', (id,))
+      return
+  else:
+    cur.execute('insert into gms_hostatus(hostcode, host, status, timestamp) values(%s, %s, 0, now())', (hostcode, localip))
+
+  options = {}
+  cur.execute('select name, value from gms_options')
+  all = cur.fetchall()
+  for each in all:
+    name, value = each
+    options[name] = value
+
+  ie_ = int(options.get('ie', 1))
+  firefox_ = int(options.get('firefox', 1))
+  chrome_ = int(options.get('chrome', 1))
+  others_ = int(options.get('others', 1))
+  maxthread_ = int(options.get('maxthread', 5))
+
+  if ie_ != ie or firefox != firefox or chrome_ != chrome or others_ != others:
+    logger.info('dashboard ua changed')
+    ie, firefox, chrome, others, maxthread = ie_, firefox_, chrome_, others_, maxthread_
+    ualist = []
+    ie_count = firefox_count = chrome_count = others_count = 0
+    cur.execute('select UA from gms_ua_list')
+    all = cur.fetchall()
+    for each in all:
+      each, = each
+      each = each.strip()
+      if each.find('MSIE') != -1:
+        ie_count += 1
+        if ie == 1:
+          ualist.append(each)
+      elif each.find('Firefox') != -1:
+        firefox_count += 1
+        if firefox == 1:
+          ualist.append(each)
+      elif each.find('Chrome') != -1:
+        chrome_count += 1
+        if chrome == 1:
+          ualist.append(each)
+      else:
+        others_count += 1
+        if others == 1:
+          ualist.append(each)
+
+    logger.info('ua list: %s' % len(ualist))
+
+    configchanged.set()
+  elif maxthread != maxthread_:
+    logger.info('dashboard config changed')
+    maxthread = maxthread_
+    configchanged.set()
+# 911 模块
+def start911():
+  s911 = False
+  sproxifier = False
+  for proc in psutil.process_iter():
+    if proc.name() == 'Client.exe':
+      s911 = True
+    elif proc.name() == 'Proxifier-1.exe':
+      sproxifier = True
+
+  if not sproxifier:
+    logger.info('start proxifier-1')
+    p = subprocess.Popen(proxifier)
+    logger.info('proxifier-1 started: %s', p.pid)
+    sleep(5)
+
+  if not s911:
+    app911 = Application()
+    app911.start(client911)
+    sleep(30)
+    dlg = app911.top_window_()
+    while True:
+      try:
+        sleep(3)
+        try:
+          flogin= pywinauto.findwindows.find_window(class_name='#32770', title='Client')
+          win32api.SendMessage(flogin, 0x0010, 0, 0)
+        except Exception as e:
+          pass
+        sleep(3)
+        dlg = app911.top_window_()
+        dlg.Login.Click()
+      except Exception as e:
+        break
+    logger.info('911S5 started')
+    sleep(5)
+
+def restart911():
+  '''
+  for proc in psutil.process_iter():
+    if proc.name() in ['Client.exe', 'Proxifier.exe', 'Proxifier-1.exe']:
+      logger.info('kill %s', proc.name())
+      proc.kill()
+  '''
+
+  logger.info('kill %s', 'Proxifier-1.exe')
+  os.system('taskkill /F /IM Proxifier-1.exe')
+  logger.info('kill %s', 'Client.exe')
+  os.system('taskkill /F /IM Client.exe')
+  sleep(5)
+
+  logger.info('restart Client and Proxifier')
+  start911()
+
+
+emuapp = None
+def startemu():
+  global emuapp
+  try:
+    if emuapp == None:
+      for proc in psutil.process_iter():
+        if proc.name() == 'Emuassisant.exe':
+          proc.kill()
+          sleep(5)
+
+      emuapp = Application()
+      emuapp.start(emuassisant)
+      dlg = emuapp.top_window_()
+      signin = dlg["Sign In"]
+      sleep(15)
+      signin.Click()
+      sleep(5)
+      dlg = emuapp.top_window_()
+      sleep(1)
+      tab = dlg.TabControl
+      rect = tab.ClientRect()
+      tab.Click(coords=(rect.width()*7/16, 10))
+      sleep(2)
+      logger.info('Emuassisant started')
+  except:
+    logger.exception('unexpected in startemu')
+
+def modifymachine():
+  if emuapp == None:
+    logger.warning('Emuassisant not started')
+    return False
+
+  try:
+    dlg = emuapp.top_window_()
+    dlg.SetFocus()
+    sleep(2)
+    dlg.Modify.Click()
+    sleep(5)
+    pos, n = 1, 0
+    while pos > 0 and n < 30:
+      pos = dlg.changeprogress.GetPosition()
+      print pos
+      n += 1
+      sleep(1)
+
+    logger.debug('machine modified %s, %s', pos, n)
+
+    return pos == 0
+  except:
+    logger.exception('exception in modifymachine')
+
+  return False
+
+logque = Queue.Queue()
+
+class Mainapp():
+  def __init__(self, master=None):
+    self.master = master
+    self.count = 0
+
+    self.started = threading.Event()
+
+    self.ie = IntVar()
+    self.firefox = IntVar()
+    self.chrome = IntVar()
+    self.others = IntVar()
+    self.proxymode = IntVar()
+    self.maxthread = IntVar()
+
+    Label(master, text="Host Code: {0}".format(hostcode), anchor=W).grid(row=0, column=0, padx=5, pady=2, sticky=W)
+    Label(master, text="Version: {0}".format(releaseversion), anchor=W).grid(row=1, column=0, padx=5, pady=5, sticky=W)
+
+    setting = LabelFrame(master, text="设置")
+    setting.grid(row=2, padx=5, pady=5, ipadx=5, ipady=5, sticky=EW)
+
+    Label(setting, text="UA:", anchor=W).grid(row=2, column=0, padx=10, sticky=W)
+    self.cbie = Checkbutton(setting, text="IE ({0})".format(ie_count), variable = self.ie, state=DISABLED)
+    self.cbie.grid(row=2, column=1, sticky=W)
+    self.cbfirefox = Checkbutton(setting, text="Firefox ({0})".format(firefox_count), variable = self.firefox, state=DISABLED)
+    self.cbfirefox.grid(row=2, column=2, sticky=W)
+    self.cbchrome = Checkbutton(setting, text="Chrome ({0})".format(chrome_count), variable = self.chrome, state=DISABLED)
+    self.cbchrome.grid(row=2, column=3, sticky=W)
+    self.cbothers = Checkbutton(setting, text="Others ({0})".format(others_count), variable = self.others, state=DISABLED)
+    self.cbothers.grid(row=2, column=4, sticky=W)
+
+    Label(setting, text="代理:", anchor=W).grid(row=3, column=0, padx=10, sticky=W)
+    Radiobutton(setting, text='today list', variable=self.proxymode, value = 1, state=DISABLED).grid(row=3, column=1, sticky=W)
+    Radiobutton(setting, text='auto proxy', variable=self.proxymode, value = 2, state=DISABLED).grid(row=3, column=2, sticky=W)
+    Radiobutton(setting, text='socks5 proxy', variable=self.proxymode, value = 3, state=DISABLED).grid(row=3, column=3, sticky=W)
+
+    vcmd = (self.master.register(self.numvalidate), '%d', '%i', '%P', '%s', '%S', '%v', '%V', '%W')
+    Label(setting, text="最大线程数：", anchor=W).grid(row=4, column=0, padx=10, sticky=W)
+    Entry(setting, width=3, textvariable = self.maxthread, validate="all", validatecommand=vcmd, state=DISABLED).grid(row=4, column=1, columnspan=4, sticky=W)
+
+    self.startbtn = Button(master, text="开始",  command = self.start)
+    self.startbtn.grid(row=3, padx=40, pady=5)
+
+    logfrm = Frame(master) # 具有三维边框
+    logfrm.grid(row=4, padx=5, pady=5, sticky=EW)
+
+    scrollbary = Scrollbar(logfrm)
+    scrollbary.pack(side=RIGHT, fill=Y)
+    #scrollbarx = Scrollbar(logfrm, orient=HORIZONTAL)
+    #scrollbarx.pack(side=BOTTOM, fill=X)
+
+    self.loglist = Listbox(logfrm, width = 80, height = 30, yscrollcommand=scrollbary.set) # 滚动条
+    #scrollbarx.config(command=self.loglist.xview)
+    scrollbary.config(command=self.loglist.yview)
+    self.loglist.pack(side=LEFT, fill=BOTH, expand=1)
+
+    self.start()
+
+    self.master.after(5000, self.tick)
+
+  def start(self):
+    global userdata
+
+    if self.started.is_set():
+      logger.info('stop')
+      self.started.clear()
+      self.startbtn.config(text="开始")
+    else:
+      logger.info('start')
+      self.started.set()
+      self.control = threading.Thread(target = control)
+      self.control.daemon = True
+      self.control.start()
+
+      self.startbtn.config(text="停止")
+
+  def tick(self):
+    self.count += 1
+
+    if configchanged.is_set():
+      self.ie.set(ie)
+      self.firefox.set(firefox)
+      self.chrome.set(chrome)
+      self.others.set(others)
+      self.proxymode.set(proxymode)
+      self.maxthread.set(maxthread)
+
+      self.cbie.config(text="IE ({0})".format(ie_count))
+      self.cbfirefox.config(text="Firefox ({0})".format(firefox_count))
+      self.cbchrome.config(text="Chrome ({0})".format(chrome_count))
+      self.cbothers.config(text="Others ({0})".format(others_count))
+
+      configchanged.clear()
+
+    i = 0
+    while not logque.empty() and i < 100:
+      if self.loglist.size() > 1000:
+        self.loglist.delete(0, 500)
+      msg = logque.get()
+      self.loglist.insert(END, msg)
+      self.loglist.see(END)
+      logque.task_done()
+      i += 1
+
+    if self.count % 30 == 0 and self.started.is_set() and self.control != None and self.control.is_alive() == False:
+      logger.warning('Control thread die, restart')
+      self.control = threading.Thread(target = control)
+      self.control.daemon = True
+      self.control.start()
+
+    '''
+    if self.count == 1 or self.count % 600 == 0:
+      downloader = threading.Thread(target = checkupgrade)
+      downloader.daemon = True
+      downloader.start()
+    '''
+
+    if downloaded.is_set():
+      os.execl(exepath, 'autoreg.exe', '-U ', sys.executable)
+
+    self.master.after(1000, self.tick)
+
+  def numvalidate(self, d, i, P, s, S, v, V, W):
+    validated = True
+    if V == 'focusout':
+      if len(P) == 0:
+        self.maxthread.set(5)
+        validated = False
+    else:
+      if S in '0123456789':
+        try:
+          if len(P) == 0:
+            validated = True
+          else:
+            value = int(P)
+            validated = (value <= 20)
+        except ValueError:
+          validated = False
+      else:
+        validated = False
+
+    if not validated:
+      self.master.bell()
+
+    return validated
+
+class GuiHandler(logging.Handler):
+  def emit(self, record):
+    log_entry = self.format(record)
+    logque.put(log_entry)
+
+def checkupgrade():
+  try:
+    s = urllib2.urlopen('http://www.offerstop.xyz/version.txt')
+    resp = s.read()
+    lines = resp.split('\n')
+    lines = [x.strip() for x in lines]
+    if len(lines) > 1:
+      logger.debug("checking latest version: %s, %s", lines[0], lines[1])
+      if lines[0] != releaseversion:
+        download(lines[1])
+  except:
+    logger.exception("unexcepted")
+
+downloaded = threading.Event()
+exepath = None
+def download(url):
+  global exepath
+
+  req = urllib2.Request(url)
+  req.add_header('User-Agent', 'Mozilla/5.0')
+  logger.debug('start downloading %s', url)
+  s = urllib2.urlopen(req)
+  file = s.read()
+  temp = os.environ['TEMP']
+  exepath = os.path.join(temp, 'autoreg.exe')
+  logger.debug('save file %s', exepath)
+  f = open(exepath, 'wb')
+  f.write(file)
+  f.close()
+  downloaded.set()
+  logger.debug('finish downloading %s', url)
+
+def cleantmp():
+  tmpdir = win32api.GetLongPathName(tempfile.gettempdir())
+  try:
+
+    sys_meipass = win32api.GetLongPathName(sys._MEIPASS)
+    for tmpfile in os.listdir(tmpdir):
+      fullpath = os.path.join(tmpdir, tmpfile)
+      if fullpath.lower() != sys_meipass.lower() and tmpfile != 'lib':
+        try:
+          if os.path.isdir(fullpath):
+            rmtree(fullpath, True)
+          else:
+            os.remove(fullpath)
+        except:
+          pass
+          #logger.exception('fail to remove file: %s', fullpath)
+  except:
+    pass
+
+app = None
+client911 = "c:\\auto\\911S5\\Client.exe"
+autoproxy = 'c:\\auto\\911S5\\proxytool\\autoproxytool -ChangeProxy'
+changeproxyapiip = 'c:\\auto\\changeproxyapiip'
+proxifier = 'c:\\auto\\proxytool\\Proxifier-1.exe'
+emuassisant = 'c:\\auto\\emuassisant\\Emuassisant.exe'
+webrtc = 'c:\\auto\\disable_webrtc.xpi'
+
+try:
+  parser = argparse.ArgumentParser(description='autoreg')
+  parser.add_argument('-U')
+  parser.add_argument('-I', action='store_true')
+  args = parser.parse_args()
+
+  logging.Formatter.converter = gmtime
+
+  logger = logging.getLogger(__name__)
+  logger.setLevel(logging.DEBUG)
+  now = datetime.datetime.utcnow()
+  logfile = now.strftime('autoreg_%Y%m%d.log')
+  th = logging.FileHandler(logfile, encoding = 'gbk')
+  th.setLevel(logging.DEBUG)
+  formatter = logging.Formatter('%(asctime)s %(levelname)s %(lineno)d %(message)s', '%Y-%m-%d %H:%M:%S')
+  th.setFormatter(formatter)
+  logger.addHandler(th)
+
+  ch = GuiHandler()
+  ch.setLevel(logging.INFO)
+  formatter = logging.Formatter('%(asctime)s %(message)s', '%Y-%m-%d %H:%M:%S')
+  ch.setFormatter(formatter)
+  logger.addHandler(ch)
+
+  dbfile = '.\\db.cfg'
+  if not os.path.exists(dbfile):
+    logger.warning('Config file %s not exist', dbfile)
+    exit(0)
+
+  config = ConfigParser.RawConfigParser()
+  config.read(dbfile)
+
+  db_host = config.get('maindb', 'host')
+  db_user = config.get('maindb', 'user')
+  db_passwd = config.get('maindb', 'password')
+  db_database = config.get('maindb', 'database')
+
+  today_host = config.get('todaydb', 'host')
+  today_user = config.get('todaydb', 'user')
+  today_passwd = config.get('todaydb', 'password')
+  today_database = config.get('todaydb', 'database')
+  today_table = config.get('todaydb', 'table')
+
+  socket.setdefaulttimeout(180)
+
+  if args.U != None:
+    dest = args.U
+    logger.debug('copy %s to %s', sys.executable, dest)
+    copyfile(sys.executable, dest)
+    os.execl(dest, 'autoreg.exe')
+
+  cleantmp()
+
+  if hasattr(sys, "_MEIPASS"):
+    tcl_dir = os.environ['TCL_LIBRARY']
+    tk_dir = os.environ['TK_LIBRARY']
+    temp = os.environ['TEMP']
+    tclpath = os.path.join(temp, r'lib\tcl8.5')
+    tkpath = os.path.join(temp, r'lib\tk8.5')
+    if os.path.exists(tclpath):
+      rmtree(tclpath)
+    if os.path.exists(tkpath):
+      rmtree(tkpath)
+    copytree(tcl_dir, tclpath)
+    copytree(tk_dir, tkpath)
+
+  appdata = os.getenv('APPDATA', '.\\')
+  configfile = os.path.join(appdata, 'autoreg.dat') # 向环境变量中添加这个模块
+
+  if os.path.exists(configfile):
+    pkfile = open(configfile, 'rb')
+    hostcode = pickle.load(pkfile)
+    pkfile.close()
+  else:
+    hostcode = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(15))
+    pkfile = open(configfile, 'wb')
+    pickle.dump(hostcode, pkfile)
+    pkfile.close()
+
+  logger.info('host code: %s', hostcode)
+
+  try:
+    if localip == None:
+      r = requests.get('http://ipinfo.io')
+      html = r.text
+      logger.debug(html)
+      ipinfo = json.loads(html)
+      localip = ipinfo['ip']
+
+    logger.info('local ip: %s' % localip)
+  except:
+    pass
+
+  root = Tk()
+  app = Mainapp(master = root)
+  root.mainloop()
+  th.flush()
+finally:
+  pass

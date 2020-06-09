@@ -1,0 +1,124 @@
+url: https://www.cnblogs.com/0x0101010/p/8902731.html
+url: https://www.cnblogs.com/0x0101010/p/8902731.html
+url: https://www.cnblogs.com/0x0101010/p/8902731.html
+
+自己通过nginx uwsgi 部署django项目，查询了很多资料，遇到了很多问题，最终完成了部署，趁着心情愉悦，写个随笔，为曾像我一样苦寻解决方案的小伙伴们提供些思路。
+
+安装Nginx：
+
+ 1 #安装nginx
+ 2 sudo apt-get install nginx
+ 3
+ 4 #一些有用的命令
+ 5 #启动nginx
+ 6 sudo /etc/init.d/nginx start
+ 7 #重启nginx
+ 8sudo /etc/init.d/nginx restart
+ 9 #停止nginx
+10 sudo /etc/init.d/nginx stop
+11
+12 #很暴力的方法，我喜欢
+13 sudo killall nginx
+安装uwsgi:
+
+1 pip install uwsgi
+2
+3 #注意uwsgi需要在虚拟环境中运行
+配置uwsgi:
+
+#在项目目录中建立个conf文件夹，将nginx和uwsgi文件都放进去，不是必须#但是个好习惯
+
+#my_uwsgi.ini
+ite_uwsgi.ini file
+[uwsgi]
+
+# Django-related settings
+# the base directory (full path)
+chdir           = /to/your/project/#这个是项目的路径
+# Django's wsgi file
+module          = project.wsgi#这个project要换成自己的项目名，也就是uwsgi.py所在的文件夹名
+# the virtualenv (full path)
+home            = /home/ubuntu/.virtualenvs/虚拟环境名#这个就是虚拟环境的路径
+
+# process-related settings
+# master
+master          = true
+# maximum number of worker processes
+processes       = 10
+# the socket (use the full path to be safe
+socket          = 127.0.0.1:8080#这个用来和Nginx对接，端口号可以改，本人项目将uwsgi作为本地服务，外网不能直接访问，用nginx作为代理，所以用本地的地址。
+# ... with appropriate permissions - may be needed
+# chmod-socket    = 664
+# clear environment on exit
+vacuum          = true
+~
+配置nginx
+
+ 1 #以下内容在mysite_nginx.conf中，这个文件名也可以随意起
+ 2 # mysite_nginx.conf
+ 3
+ 4 # the upstream component nginx needs to connect to
+ 5 upstream django {
+ 6     # server unix:///path/to/your/mysite/mysite.sock; # for a file socket
+ 7     server 127.0.0.1:8080; #这个是用来跟uwsgi对接的，要和my_uwsgi.ini中写一致
+ 8 }
+ 9
+10 # configuration of the server
+11 server {
+12     # the port your site will be served on
+13     listen      8000;#这个端口是nginx用来监听uwsgi的，默认的是80,总之项目是通过下面的server_name:8000来访问的
+14     # the domain name it will serve for
+15     server_name xxx.xxx.xx.xx ; #这个ip就是服务器的ip
+16     charset     utf-8;
+17
+18     # max upload size
+19     client_max_body_size 75M;   # adjust to taste
+20
+21     # Django media
+22     location /media  {
+23         alias /your/project/media;  #这个目录是项目的meda目录
+24     }
+25    location /static {
+26         alias /your/project/static; # 这个目录是项目的static目录
+27     }
+28
+29     # Finally, send all non-media requests to the Django server.
+30     location / {
+31         uwsgi_pass  django;#这个是对接uwsgi的
+32         include     uwsgi_params; # 这个参数按我这样写nginx就能找到的
+33     }
+34 }
+35
+将nginx配置文件链接到启动配置目录：
+
+#注意修改下面的路径及文件名，哈哈不要只复制粘贴啊
+sudo ln -s ~/path/to/your/mysite/mysite_nginx.conf /etc/nginx/sites-enabled/
+修改django项目中的setting.py文件，添加
+#要将STATICFILES_DIRS =[os.path.join(BASE_DIR, 'static')]注释掉，Debug在生产模式也要改成False
+
+STATIC_ROOT = os.path.join(BASE_DIR, "static/")
+将静态文件打包，让nginx代理：
+
+python manage.py collectstatic
+启动nginx,uwsgi
+
+ sudo /etc/init.d/nginx restart
+#进入conf文件夹，或者说配置的uwsgi.ini文件所在目录
+#uwsgi.ini改成自己的名字
+uwsgi -i uwsgi.ini
+访问：
+
+ip:port(端口为nginx.conf中配置的）
+
+总结：
+
+写到这也差不多了，项目可以跑起来了，nginx，uwsgi高级配置还在学习中，希望本文对你有所帮助，谢谢。
+
+最后再提醒下，网上有很多配置文件的模板，将我写注释的地方对比修改下，别遗漏。
+
+
+
+参考文档：https://uwsgi.readthedocs.io/en/latest/tutorials/Django_and_nginx.html
+
+　　　　　http://uwsgi-docs.readthedocs.io/en/latest/Nginx.html
+

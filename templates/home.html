@@ -1,0 +1,119 @@
+{% extends 'base-right.html' %}
+{% load staticfiles %}
+{% block css-js %}
+    <link href="{% static 'css/base.css' %}" rel="stylesheet">
+    <link href="{% static 'css/index.css' %}" rel="stylesheet">
+    <link href="{% static 'css/m.css' %}" rel="stylesheet">
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'js/jquery.easyfader.min.js' %}"></script>
+    <script src="{% static 'js/hc-sticky.js' %}"></script>
+    <script src="{% static 'js/comm.js' %}"></script>
+    <script src="{% static 'js/scrollReveal.js' %}"></script>
+{% endblock %}
+{% block banner %}
+    <div class="banner">
+        <div id="banner" class="fader">
+            {% for banner in banner_articles %}
+                {% if banner.image %}
+                    <li class="slide"><a href="{% url 'detail' banner.id %}" target="_blank"><img src="{{ MEDIA_URL }}{{ banner.image }}"><span class="imginfo">{{ banner.title }}</span></a>
+                    </li>
+                {% else %}
+                    <li class="slide"><a href="{% url 'detail' banner.id %}" target="_blank"><img src="{{ banner.image_url }}"><span class="imginfo">{{ banner.title }}</span></a>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            <div class="fader_controls">
+                <div class="page prev" data-target="prev">&lsaquo;</div>
+                <div class="page next" data-target="next">&rsaquo;</div>
+                <ul class="pager_list">
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block main %}
+    <main>
+        <div class="news_box">
+            <ul>
+                {% for news in news_box_banners %}
+                    {% if news.image %}
+                        <li><i><a href="{% url 'detail' news.id %}"><img src="{{ MEDIA_URL }}{{ news.image }}"></a></i>
+                            <h3><a href="{% url 'detail' news.id %}">{{ news.title }}</a></h3>
+                        </li>
+                    {% else %}
+                        <li><i><a href="{% url 'detail' news.id %}"><img src="{{ news.image_url }}"></a></i>
+                            <h3><a href="{% url 'detail' news.id %}">{{ news.title }}</a></h3>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="pics">
+            <ul>
+                {% for pic in pics_banners %}
+                    {% if pic.image %}
+                        <li><i><a href="{% url 'detail' pic.id %}" target="_blank"><img src="{{ MEDIA_URL }}{{ pic.image }}"></a></i><span>{{ pic.title }}</span>
+                        </li>
+                    {% else %}
+                        <li><i><a href="{% url 'detail' pic.id %}" target="_blank"><img src="{{ pic.image_url }}"></a></i><span>{{ pic.title }}</span>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="blogtab">
+            <ul id="blogtab">
+                <li class="current">最新文章</li>
+{#                <li><a href="list.html">心得笔记</a></li>#}
+{#                <li><a href="list.html">CSS3|Html5</a></li>#}
+{#                <li><a href="list.html">网站建设</a></li>#}
+{#                <li><a href="list.html">文字标签</a></li>#}
+{#                <li><a href="list.html">文字广告</a></li>#}
+            </ul>
+            {% for article in curr_page.object_list %}
+                <div class="blogs" data-scroll-reveal="enter bottom over 1s">
+                    <h3 class="blogtitle"><a href="{% url 'detail' article.id %}"
+                                             target="_blank">{{ article.title }}</a></h3>
+                    {% if article.image %}
+                        <span class="blogpic"><a href="{% url 'detail' article.id %}" title=""><img src="{{ MEDIA_URL }}{{ article.image }}" alt=""></a></span>
+                    {% elif article.image_url %}
+                        <span class="blogpic"><a href="{% url 'detail' article.id %}" title=""><img src="{{ article.image_url }}" alt=""></a></span>
+                    {% endif %}
+                    <p class="blogtext">{{ article.desc }}</p>
+                    <div class="bloginfo">
+                        <ul>
+                            <li class="author"><a href="{% url 'about-me' %}">RexDu</a></li>
+                            <li class="lmname"><a href="{% url 'category' article.category %}">{{ article.category.name }}</a>
+                            </li>
+                            <li class="timer">{{ article.add_time }}</li>
+                            <li class="view"><span>{{ article.click_nums }}</span>已阅读</li>
+                        </ul>
+                    </div>
+                </div>
+            {% endfor %}
+
+        </div>
+        <div class="pagelist">
+            <a title="Total record">&nbsp;<b>共 {{ curr_page.paginator.num_pages }} 页</b></a>
+            {% if curr_page.has_previous %}
+                <a href="?{{ curr_page.previous_page_number.querystring }}">上一页</a>
+            {% endif %}
+            {% for page in curr_page.pages %}
+                {% if page %}
+                    {% ifequal page curr_page.number %}
+                        <b>{{ page }}</b>
+                    {% else %}
+                        <a href="?{{ page.querystring }}" class="page">{{ page }}</a>
+                    {% endifequal %}
+                {% else %}
+                    ...
+                {% endif %}
+            {% endfor %}
+            {% if curr_page.has_next %}
+                <a href="?{{ curr_page.next_page_number.querystring }}">下一页</a>
+            {% endif %}
+
+        </div>
+    </main>
+{% endblock %}
