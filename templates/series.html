@@ -1,0 +1,52 @@
+{% extends 'base-head.html' %}
+{% load staticfiles %}
+{% block css-js %}
+    <link href="{% static 'css/base.css' %}" rel="stylesheet">
+    <link href="{% static 'css/index.css' %}" rel="stylesheet">
+    <link href="{% static 'css/m.css' %}" rel="stylesheet">
+    <script src="{% static 'js/jquery.min.js' %}"></script>
+    <script src="{% static 'js/jquery.easyfader.min.js' %}"></script>
+    <script src="{% static 'js/hc-sticky.js' %}"></script>
+    <script src="{% static 'js/comm.js' %}"></script>
+    <script src="{% static 'js/scrollReveal.js' %}"></script>
+{% endblock %}
+{% block content %}
+    <main>
+        <div class="place" id="pageContents">
+            <h3>{{ last_series.name }}</h3>
+        </div>
+        {% for article in series_articels %}
+            <div class="blogs" data-scroll-reveal="enter bottom over 1s">
+                <h3 class="blogtitle"><a href="{% url 'detail' article.id %}" target="_blank">{{ article.title }}</a>
+                </h3>
+                {% if article.image %}
+                <span class="blogpic"><a href="{% url 'detail' article.id %}" title=""><img src="{{ MEDIA_URL }}{{ article.image }}" alt=""></a></span>
+		{% elif article.image_url %}
+                    <span class="blogpic"><a href="{% url 'detail' article.id %}" title=""><img src="{{ article.image_url }}" alt=""></a></span>
+                {% endif %}
+                <p class="blogtext">{{ article.desc|safe }}</p>
+                <div class="bloginfo">
+                    <ul>
+                        <li class="author">{{ article.user }}</li>
+                        {% comment %} <li class="lmname"><a href="{% url 'category' category %}">{{ article.category.name|title }}</a></li> {% endcomment %}
+                        <li class="timer">{{ article.add_time }}</li>
+                        <li class="view"><span>{{ article.click_nums }}</span>已阅读</li>
+                        {#                <li class="like">9999</li>#}
+                    </ul>
+                </div>
+            </div>
+        {% endfor %}
+
+    </main>
+    <aside class="r_box">
+        <div class="cloud">
+            <h2>系列文章</h2>
+            <ul>
+                {% for series in each_series_count %}
+                <p><a href="{% url 'series' series.id %}">{{ series.name }} ({{ series.count }})</a></p>
+                {% endfor %}
+            </ul>
+        </div>
+
+    </aside>
+{% endblock %}

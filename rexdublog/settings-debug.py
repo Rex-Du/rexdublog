@@ -87,6 +87,7 @@ INSTALLED_APPS = [
     'ckeditor_uploader',
     'rest_framework',
     'social_django',  # 添加第三方登录库app
+    'series',
 ]
 
 # 设置登录的方式，这里是github

@@ -30,6 +30,7 @@ urlpatterns = [
     path('home/', include('apps.home.urls')),
     path('about/', include('apps.about.urls')),
     path('share/', include('apps.share.urls')),
+    path('series/', include('apps.series.urls')),
     path('timeline/', include('apps.timeline.urls')),
     path('learning/', include('apps.learning.urls')),
     path('', HomePageView.as_view(), name='home'),
