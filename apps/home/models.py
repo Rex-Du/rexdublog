@@ -58,7 +58,7 @@ class Article(models.Model):
     praise_nums = models.IntegerField('点赞数', default=0)
     tags = models.ManyToManyField(Tag, verbose_name='标签')
     series = models.ForeignKey(
-        Series, verbose_name='系列', on_delete=models.DO_NOTHING, null=True)
+        Series, verbose_name='系列', on_delete=models.DO_NOTHING, null=True, blank=True)
 
     class Meta:
         verbose_name = '文章'
