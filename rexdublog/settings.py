@@ -321,5 +321,5 @@ PAGINATION_SETTINGS = {
 
 REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_CLASSES': ['apps.utils.throttle.IPThrottle'],
-    'DEFAULT_THROTTLE_RATES': {'anonymous': '10/m'}
+    'DEFAULT_THROTTLE_RATES': {'anonymous': '100/m'}
 }
