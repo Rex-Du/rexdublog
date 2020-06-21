@@ -9,22 +9,15 @@
     <script src="{% static 'js/jquery.min.js' %}"></script>
     <script src="{% static 'js/jquery.easyfader.min.js' %}"></script>
     <script src="{% static 'js/hc-sticky.js' %}"></script>
-{#    <script src="{% static 'js/comm.js' %}"></script>#}
+    <script src="{% static 'js/comm.js' %}"></script>
     <script src="{% static 'js/scrollReveal.js' %}"></script>
     <script src="{% static 'ckeditor/ckeditor/ckeditor.js' %}"></script>
     <script src="{% static 'ckeditor/ckeditor/config.js' %}"></script>
     <!--<script src="{% static 'ckeditor/ckeditor-init.js' %}"></script>-->
+
 {% endblock %}
 {% block content %}
-    <div class="place" id="pageContents">
-        {% for cate in CATEGORIES %}
-            {% ifequal cate article.category %}
-                <a href="{% url 'category' cate %}" id="pagecurrent">{{ cate|title }}</a>
-            {% else %}
-                <a href="{% url 'category' cate %}">{{ cate|title }}</a>
-            {% endifequal %}
-        {% endfor %}
-    </div>
+
     <div class="infosbox">
         <div class="newsview">
             <h3 class="news_title">{{ article.title }}</h3>
