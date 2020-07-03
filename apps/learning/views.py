@@ -1,6 +1,7 @@
 from django.core.paginator import EmptyPage
-from django.http import HttpResponseRedirect, request
-from django.shortcuts import render
+from django.http import HttpResponseRedirect
+from django.shortcuts import render, redirect
+from django.urls import reverse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 # from rest_framework.pagination import PageNumberPagination, CursorPagination
@@ -13,11 +14,13 @@ from home.models import Article, ReadAndPraise, Comment
 
 
 class LearningView(APIView):
-    def get(self, request, category=None):
+    def get(self, request, category=None, keyword=None):
         if category:
             articles = Article.objects.filter(category__name=category).order_by('-add_time')
         else:
             articles = Article.objects.order_by('-add_time')
+        if keyword:
+            articles = articles.filter(title__icontains=keyword)
         page = request.GET.get('page', 1)
         paginator = Paginator(articles, 8, request=request)
         try:
@@ -31,6 +34,10 @@ class LearningView(APIView):
 
         return render(request, 'learning.html', locals())
 
+    def post(self, request):
+        data = request.data
+        keyword = data.get('keyword')
+        return redirect(reverse('search', kwargs={'keyword': keyword}))
 
 class DetailView(APIView):
     def get(self, request, id, cate=1):

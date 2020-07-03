@@ -59,10 +59,9 @@
         </ul>
         <div class="searchbox">
             <div id="search_bar" class="search_bar">
-                <form id="searchform" action="[!--news.url--]e/search/index.php" method="post"
+                <form id="searchform" action="{% url 'learning' %}" method="post"
                       name="searchform">
-                    <input class="input" placeholder="想搜点什么呢.." type="text" name="keyboard"
-                           id="keyboard">
+                    <input class="input" placeholder="想搜点什么呢.." type="text" name="keyword" id="keyword">
                     <input type="hidden" name="show" value="title"/>
                     <input type="hidden" name="tempid" value="1"/>
                     <input type="hidden" name="tbname" value="news">
